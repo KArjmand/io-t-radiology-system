@@ -1,0 +1,36 @@
+services:
+    mongo:
+        image: mongo:8
+        container_name: mongo
+        hostname: mongo
+        ports:
+            - 27017:27017
+        volumes:
+            - ./data/mongo_data:/data/db
+        env_file:
+            - .env
+        networks:
+            - iot-radiology-backend
+
+    rabbitmq:
+        image: rabbitmq:3-management-alpine
+        container_name: rabbitmq
+        hostname: rabbitmq
+        ports:
+            - 5672:5672
+            - 15672:15672
+        volumes:
+            - ./data/rabbitmq_data:/var/lib/rabbitmq
+        environment:
+            RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+            RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+        env_file:
+            - .env
+        networks:
+            - iot-radiology-backend
+
+networks:
+    iot-radiology-backend:
+        name: iot-radiology-backend
+        driver: bridge
+        attachable: true

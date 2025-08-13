@@ -1,0 +1,59 @@
+services:
+  io-t-radiology-system:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: io-t-radiology-system
+    hostname: io-t-radiology-system
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://mongo:27017/xray-data
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+    depends_on:
+      - mongo
+      - rabbitmq
+    env_file:
+      - .env
+    networks:
+      - iot-radiology-backend
+
+  mongo:
+    image: mongo:8
+    container_name: mongo
+    hostname: mongo
+    ports:
+      - 27017:27017
+    volumes:
+      - ./data/mongo_data:/data/db
+    env_file:
+      - .env
+    networks:
+      - iot-radiology-backend
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    hostname: rabbitmq
+    ports:
+      - 5672:5672
+      - 15672:15672
+    volumes:
+      - ./data/rabbitmq_data:/var/lib/rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    env_file:
+      - .env
+    networks:
+      - iot-radiology-backend
+
+networks:
+  iot-radiology-backend:
+    name: iot-radiology-backend
+    driver: bridge
+    attachable: true
