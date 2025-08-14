@@ -2,97 +2,180 @@
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+<h1 align="center">IoT X-Ray Data Management System</h1>
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
+<p align="center">
+  A NestJS-based IoT data management system for processing X-Ray data from medical devices.
 </p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Overview
 
-## Description
+This project is an IoT X-Ray Data Management System built with NestJS, RabbitMQ, and MongoDB. It processes X-Ray data from IoT medical devices, stores the processed data, and provides RESTful API endpoints for data retrieval and analysis.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+### Key Features
 
-## Project setup
+- **RabbitMQ Integration**: Receives X-Ray data from IoT devices via message queues
+- **Data Processing**: Processes and validates incoming X-Ray data
+- **MongoDB Storage**: Stores processed data in a MongoDB database
+- **RESTful API**: Provides endpoints for CRUD operations and data filtering
+- **Producer Simulation**: Includes a module to simulate IoT devices sending X-Ray data
+- **Swagger Documentation**: Auto-generated API documentation with validation
 
-```bash
-$ npm install
+## System Architecture
+
+```
+┌─────────────┐     ┌───────────┐     ┌─────────────┐     ┌─────────────┐
+│ IoT Devices │────▶│ RabbitMQ  │────▶│ NestJS App  │────▶│  MongoDB    │
+│ (Producer)  │     │ (Queue)   │     │ (Consumer)  │     │ (Database)  │
+└─────────────┘     └───────────┘     └─────────────┘     └─────────────┘
+                                            │
+                                            ▼
+                                      ┌─────────────┐
+                                      │  REST API   │
+                                      │  Endpoints  │
+                                      └─────────────┘
 ```
 
-## Compile and run the project
+## Prerequisites
+
+Before running this project, make sure you have the following installed:
+
+- Node.js (v14 or later)
+- Yarn package manager
+- MongoDB (local or remote instance)
+- RabbitMQ (local or remote instance)
+
+## Installation
 
 ```bash
-# development
-$ npm run start
+# Clone the repository
+$ git clone https://github.com/KArjmand/io-t-radiology-system
 
-# watch mode
-$ npm run start:dev
+# Navigate to the project directory
+$ cd io-t-radiology-system
 
-# production mode
-$ npm run start:prod
+# Install dependencies
+$ yarn install
 ```
 
-## Run tests
+## Configuration
+
+Create a `.env` file in the root directory with the following environment variables:
+
+```env
+# Port
+PORT=3000
+
+# MongoDB
+MONGODB_URI=mongodb://localhost:27017/xray-data
+
+# RabbitMQ
+RABBITMQ_DEFAULT_USER=admin
+RABBITMQ_DEFAULT_PASS=admin123
+RABBITMQ_HOST=localhost
+RABBITMQ_PORT=5672
+```
+
+## Running the Application
 
 ```bash
-# unit tests
-$ npm run test
+# Development mode
+$ yarn start
 
-# e2e tests
-$ npm run test:e2e
+# Watch mode (recommended for development)
+$ yarn start:dev
 
-# test coverage
-$ npm run test:cov
+# Production mode
+$ yarn start:prod
 ```
 
-## Deployment
+## API Documentation
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+After starting the application, you can access the Swagger API documentation at:
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+```
+http://localhost:3000/api
+```
+
+The Swagger UI provides a comprehensive interface to explore and test all available API endpoints.
+
+### Available Endpoints
+
+#### Signals API
+
+- `GET /signals` - Get all signals
+- `GET /signals/:id` - Get signal by ID
+- `GET /signals/device/:deviceId` - Get signals by device ID
+- `GET /signals/filter/data` - Filter signals by criteria (deviceId, startTime, endTime)
+- `POST /signals` - Create a new signal
+- `PUT /signals/:id` - Update a signal
+- `DELETE /signals/:id` - Delete a signal
+
+#### Producer API (Simulation)
+
+- `POST /producer/send-sample` - Send sample X-Ray data to RabbitMQ
+- `POST /producer/send-random` - Generate and send random X-Ray data
+- `GET /producer/generate` - Generate random X-Ray data with optional deviceId
+
+## Testing
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Run unit tests
+$ yarn test
+
+# Run e2e tests
+$ yarn test:e2e
+
+# Generate test coverage report
+$ yarn test:cov
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Project Structure
 
-## Resources
+```
+src/
+├── app.module.ts            # Main application module
+├── main.ts                  # Application entry point
+├── rabbitmq/               # RabbitMQ integration
+│   ├── rabbitmq.module.ts
+│   └── rabbitmq.service.ts
+├── signals/                # X-Ray signals processing
+│   ├── dto/                # Data Transfer Objects
+│   │   ├── create-signal.dto.ts
+│   │   ├── filter-signal.dto.ts
+│   │   └── update-signal.dto.ts
+│   ├── schemas/           # MongoDB schemas
+│   │   └── xray.schema.ts
+│   ├── signals.controller.ts
+│   ├── signals.module.ts
+│   └── signals.service.ts
+└── producer/              # Producer simulation
+    ├── dto/
+    │   └── producer.dto.ts
+    ├── producer.controller.ts
+    ├── producer.module.ts
+    └── producer.service.ts
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+## Data Flow
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+1. **Data Generation**: X-Ray data is generated by IoT devices (simulated by the Producer module)
+2. **Message Queue**: Data is sent to RabbitMQ queue 'xray_queue'
+3. **Data Processing**: RabbitMQ consumer receives and processes the data
+4. **Data Storage**: Processed data is stored in MongoDB
+5. **Data Retrieval**: Data can be retrieved via RESTful API endpoints
 
-## Support
+## Docker Support
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+A Docker Compose setup is available for easy deployment:
 
-## Stay in touch
+```bash
+# Start the application with Docker Compose
+$ docker-compose up -d
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+# Stop the application
+$ docker-compose down
+```
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+This project is [MIT licensed](LICENSE).
