@@ -37,9 +37,34 @@ export class RabbitMQService implements OnModuleInit {
       this.channel = await this.connection.createChannel();
       await this.channel.assertQueue(this.queueName, { durable: true });
       this.logger.log('RabbitMQ connection established and queue asserted.');
+
+      // Set up consumer
+      this.consumeMessages();
     } catch (error) {
       this.logger.error('Failed to connect to RabbitMQ', error);
       throw error;
+    }
+  }
+
+  private consumeMessages() {
+    try {
+      void this.channel.consume(this.queueName, (msg) => {
+        if (msg) {
+          void (async () => {
+            try {
+              await this.signalsService.processXRayData(msg);
+              this.channel.ack(msg);
+            } catch (error) {
+              this.logger.error('Error processing message', error);
+              // Nack the message with requeue=false if it can't be processed
+              this.channel.nack(msg, false, false);
+            }
+          })();
+        }
+      });
+      this.logger.log(`Started consuming messages from ${this.queueName}`);
+    } catch (error) {
+      this.logger.error('Error consuming messages', error);
     }
   }
 
