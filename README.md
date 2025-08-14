@@ -141,8 +141,8 @@ You can export the OpenAPI specification directly from the Swagger UI interface 
 #### Signals API
 
 - `GET /signals` - Get all signals with pagination
-- `GET /signals/:id` - Get signal by ID
-- `GET /signals/filter` - Filter signals by criteria with pagination
+- `GET /signals/find-one/:id` - Get signal by ID
+- `GET /signals/find-all` - Filter signals by criteria with pagination
   - Supports filtering by deviceId, startTime, endTime
   - Includes standardized pagination (page, limit)
 - `POST /signals` - Create a new signal
@@ -161,7 +161,7 @@ All list endpoints support standardized pagination:
 
 ```typescript
 // Example request with pagination
-GET /signals?page=2&limit=10
+GET /signals/find-all?page=2&limit=10
 
 // Example response format
 {
