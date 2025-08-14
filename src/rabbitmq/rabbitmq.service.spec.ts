@@ -1,15 +1,32 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { RabbitmqService } from './rabbitmq.service';
+import { ConfigService } from '@nestjs/config';
+import { RabbitMQService } from './rabbitmq.service';
+import { SignalsService } from '../signals/signals.service';
 
-describe('RabbitmqService', () => {
-  let service: RabbitmqService;
+describe('RabbitMQService', () => {
+  let service: RabbitMQService;
+  let mockSignalsService: Partial<SignalsService>;
+  let mockConfigService: Partial<ConfigService>;
 
   beforeEach(async () => {
+    // Create mocks for dependencies
+    mockSignalsService = {
+      processXRayData: jest.fn(),
+    };
+
+    mockConfigService = {
+      get: jest.fn().mockImplementation((key, defaultValue) => defaultValue),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
-      providers: [RabbitmqService],
+      providers: [
+        RabbitMQService,
+        { provide: SignalsService, useValue: mockSignalsService },
+        { provide: ConfigService, useValue: mockConfigService },
+      ],
     }).compile();
 
-    service = module.get<RabbitmqService>(RabbitmqService);
+    service = module.get<RabbitMQService>(RabbitMQService);
   });
 
   it('should be defined', () => {
