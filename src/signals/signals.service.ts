@@ -1,53 +1,73 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { PaginatedResponseDto } from './dto/paginated-response.dto';
-import { PaginationDto } from './dto/pagination.dto';
-import { FilterSignalDto } from './dto/filter-signal.dto';
-import { XRay } from './schemas/xray.schema';
+import { PaginatedResponseDto } from '../common/dto/paginated-response.dto';
+import { createPaginatedResponse } from '../common/utils/pagination.utils';
+import { RabbitMQMessage, XRayMessage } from '../types';
 import { EventsGateway } from '../websocket/events.gateway';
+import { CreateSignalDto } from './dto/create-signal.dto';
+import { FilterSignalDto } from './dto/filter-signal.dto';
+import { UpdateSignalDto } from './dto/update-signal.dto';
+import { XRay } from './schemas/xray.schema';
+import { XRayRepository } from './xray.repository';
 
 @Injectable()
 export class SignalsService {
   private readonly logger = new Logger(SignalsService.name);
 
   constructor(
-    @InjectModel(XRay.name) private xrayModel: Model<XRay>,
+    private xrayRepository: XRayRepository,
     private eventsGateway: EventsGateway,
   ) {}
 
-  async processXRayData(message: any): Promise<void> {
+  /**
+   * Maps DTO coordinates format to schema tuple format
+   */
+  private mapDtoToSchema(
+    dto: CreateSignalDto | UpdateSignalDto,
+  ): Partial<XRay> {
+    return {
+      ...dto,
+      data: dto.data?.map((point) => ({
+        ...point,
+        coordinates: point.coordinates.toTuple(),
+      })),
+    };
+  }
+
+  async processXRayData(message: RabbitMQMessage): Promise<void> {
     try {
-      const data = JSON.parse(message.content.toString());
-      const deviceId = Object.keys(data)[0];
+      const parsedData: XRayMessage = JSON.parse(
+        message.content.toString(),
+      ) as unknown as XRayMessage;
+
+      const deviceId = Object.keys(parsedData)[0];
 
       // Emit 'MessageReceived' event
       this.eventsGateway.emitProcessStep(deviceId, 'MessageReceived', {
         messageSize: message.content.length,
       });
 
-      const { time, data: xrayData } = data[deviceId];
+      const { time, data: rawXrayData } = parsedData[deviceId];
 
       // Emit 'Processing' event
       this.eventsGateway.emitProcessStep(deviceId, 'Processing', {
-        dataPoints: xrayData.length,
+        dataPoints: rawXrayData.length,
       });
 
-      const dataLength = xrayData.length;
-      const dataVolume = JSON.stringify(xrayData).length;
+      const dataLength = rawXrayData.length;
+      const dataVolume = JSON.stringify(rawXrayData).length;
 
-      const xrayDocument = new this.xrayModel({
+      const xrayData = {
         deviceId,
         time,
-        data: xrayData.map(([time, [x, y, speed]]) => ({
+        data: rawXrayData.map(([time, [x, y, speed]]) => ({
           time,
-          coordinates: [x, y, speed],
+          coordinates: [x, y, speed] as [number, number, number],
         })),
         dataLength,
         dataVolume,
-      });
+      };
 
-      await xrayDocument.save();
+      const xrayDocument = await this.xrayRepository.create(xrayData);
 
       // Emit 'Saved' event
       this.eventsGateway.emitProcessStep(deviceId, 'Saved', {
@@ -57,13 +77,18 @@ export class SignalsService {
       });
 
       this.logger.log(`Processed and saved x-ray data for device ${deviceId}`);
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error('Error processing x-ray data', error);
 
       // Emit 'Error' event if there's an error
-      if (error.deviceId) {
-        this.eventsGateway.emitProcessStep(error.deviceId, 'Error', {
-          message: error.message,
+      if (
+        error &&
+        typeof error === 'object' &&
+        'deviceId' in error &&
+        'message' in error
+      ) {
+        this.eventsGateway.emitProcessStep(String(error.deviceId), 'Error', {
+          message: String(error.message),
         });
       }
 
@@ -72,71 +97,24 @@ export class SignalsService {
   }
 
   async findAll(
-    paginationDto: PaginationDto,
+    paginationDto: FilterSignalDto,
   ): Promise<PaginatedResponseDto<XRay>> {
-    const { page, limit, skip } = paginationDto;
-
     try {
-      const [items, total] = await Promise.all([
-        this.xrayModel.find().skip(skip).limit(limit).exec(),
-        this.xrayModel.countDocuments(),
-      ]);
-
-      const totalPages = Math.ceil(total / limit);
-
-      return {
-        items,
-        total,
-        page,
-        limit,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPreviousPage: page > 1,
-      };
+      const { items, total } = await this.xrayRepository.find(paginationDto);
+      return createPaginatedResponse(items, total, paginationDto);
     } catch (error) {
       this.logger.error('Error finding signals with pagination', error);
       throw error;
     }
   }
 
-  async findByDeviceId(
-    deviceId: string,
-    paginationDto: PaginationDto,
-  ): Promise<PaginatedResponseDto<XRay> | XRay[]> {
-    const { page, limit, skip } = paginationDto;
-
-    try {
-      const [items, total] = await Promise.all([
-        this.xrayModel.find({ deviceId }).skip(skip).limit(limit).exec(),
-        this.xrayModel.countDocuments({ deviceId }),
-      ]);
-
-      const totalPages = Math.ceil(total / limit);
-
-      return {
-        items,
-        total,
-        page,
-        limit,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPreviousPage: page > 1,
-      };
-    } catch (error) {
-      this.logger.error(
-        `Error finding signals for device ${deviceId} with pagination`,
-        error,
-      );
-      throw error;
-    }
-  }
-
   async findOne(id: string): Promise<XRay> {
     try {
-      const signal = await this.xrayModel.findById(id).exec();
-      if (!signal) {
+      const signal = await this.xrayRepository.findOne(id);
+
+      if (!signal)
         throw new NotFoundException(`Signal with ID ${id} not found`);
-      }
+
       return signal;
     } catch (error) {
       this.logger.error(`Error finding signal with ID ${id}`, error);
@@ -144,40 +122,40 @@ export class SignalsService {
     }
   }
 
-  async create(createSignalDto: any): Promise<XRay> {
+  async create(createSignalDto: CreateSignalDto): Promise<XRay> {
     try {
-      const newSignal = new this.xrayModel(createSignalDto);
-      return await newSignal.save();
+      const mappedData = this.mapDtoToSchema(createSignalDto);
+      const createdSignal = await this.xrayRepository.create(mappedData);
+      this.eventsGateway.server.emit('signalCreated', createdSignal);
+      return createdSignal;
     } catch (error) {
-      this.logger.error('Error creating signal', error);
+      this.logger.error(`Error creating signal: `, error);
       throw error;
     }
   }
 
-  async update(id: string, updateSignalDto: any): Promise<XRay> {
+  async update(id: string, updateSignalDto: UpdateSignalDto): Promise<XRay> {
     try {
-      const updatedSignal = await this.xrayModel
-        .findByIdAndUpdate(id, updateSignalDto, { new: true })
-        .exec();
+      const mappedData = this.mapDtoToSchema(updateSignalDto);
+      const updatedSignal = await this.xrayRepository.update(id, mappedData);
 
-      if (!updatedSignal) {
+      if (!updatedSignal)
         throw new NotFoundException(`Signal with ID ${id} not found`);
-      }
 
+      this.eventsGateway.server.emit('signalUpdated', updatedSignal);
       return updatedSignal;
     } catch (error) {
-      this.logger.error(`Error updating signal with ID ${id}`, error);
+      this.logger.error(`Error updating signal: `, error);
       throw error;
     }
   }
 
   async remove(id: string): Promise<{ deleted: boolean }> {
     try {
-      const result = await this.xrayModel.findByIdAndDelete(id).exec();
+      const result = await this.xrayRepository.remove(id);
 
-      if (!result) {
+      if (!result)
         throw new NotFoundException(`Signal with ID ${id} not found`);
-      }
 
       return { deleted: true };
     } catch (error) {
@@ -186,50 +164,12 @@ export class SignalsService {
     }
   }
 
-  async filterData(
-    filterOptions: FilterSignalDto,
-  ): Promise<PaginatedResponseDto<XRay> | XRay[]> {
+  async findAndPaginate(
+    filter: FilterSignalDto,
+  ): Promise<PaginatedResponseDto<XRay>> {
     try {
-      const { page, limit, skip, ...filters } = filterOptions;
-      const query: any = {};
-
-      if (filters.deviceId) {
-        query.deviceId = filters.deviceId;
-      }
-
-      if (filters.startTime || filters.endTime) {
-        query.time = {};
-
-        if (filters.startTime) {
-          query.time.$gte = filters.startTime;
-        }
-
-        if (filters.endTime) {
-          query.time.$lte = filters.endTime;
-        }
-      }
-
-      // If no pagination parameters provided, return all results
-      if (!page && !limit) {
-        return this.xrayModel.find(query).exec();
-      }
-
-      const [items, total] = await Promise.all([
-        this.xrayModel.find(query).skip(skip).limit(limit).exec(),
-        this.xrayModel.countDocuments(query),
-      ]);
-
-      const totalPages = Math.ceil(total / limit);
-
-      return {
-        items,
-        total,
-        page,
-        limit,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPreviousPage: page > 1,
-      };
+      const { items, total } = await this.xrayRepository.find(filter);
+      return createPaginatedResponse(items, total, filter);
     } catch (error) {
       this.logger.error('Error filtering data with pagination', error);
       throw error;

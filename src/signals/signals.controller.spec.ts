@@ -9,12 +9,11 @@ describe('SignalsController', () => {
   beforeEach(async () => {
     mockSignalsService = {
       findAll: jest.fn(),
-      findByDeviceId: jest.fn(),
       findOne: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       remove: jest.fn(),
-      filterData: jest.fn(),
+      findAndPaginate: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({

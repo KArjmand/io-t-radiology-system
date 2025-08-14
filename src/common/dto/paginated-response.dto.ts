@@ -1,8 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { XRay } from '../schemas/xray.schema';
 
 export class PaginatedResponseDto<T> {
-  @ApiProperty({ description: 'List of items', isArray: true })
+  @ApiProperty({ description: 'Array of items for the current page' })
   items: T[];
 
   @ApiProperty({ description: 'Total number of items' })
@@ -22,9 +21,4 @@ export class PaginatedResponseDto<T> {
 
   @ApiProperty({ description: 'Whether there is a previous page' })
   hasPreviousPage: boolean;
-}
-
-export class PaginatedXRayResponseDto extends PaginatedResponseDto<XRay> {
-  @ApiProperty({ description: 'List of XRay items', type: [XRay] })
-  declare items: XRay[];
 }

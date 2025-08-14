@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNumber, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
-import { PaginationDto } from './pagination.dto';
+import { PaginationDto } from '../../common/dto/pagination.dto';
 
 export class FilterSignalDto extends PaginationDto {
   @ApiProperty({

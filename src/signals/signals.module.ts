@@ -4,15 +4,15 @@ import { SignalsService } from './signals.service';
 import { SignalsController } from './signals.controller';
 import { XRay, XRaySchema } from './schemas/xray.schema';
 import { WebsocketModule } from '../websocket/websocket.module';
+import { XRayRepository } from './xray.repository';
 
 @Module({
   imports: [
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     MongooseModule.forFeature([{ name: XRay.name, schema: XRaySchema }]),
     WebsocketModule,
   ],
   controllers: [SignalsController],
-  providers: [SignalsService],
+  providers: [SignalsService, XRayRepository],
   exports: [SignalsService],
 })
 export class SignalsModule {}

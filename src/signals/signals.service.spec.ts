@@ -1,14 +1,13 @@
 import { NotFoundException } from '@nestjs/common';
-import { getModelToken } from '@nestjs/mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
-import { XRay } from './schemas/xray.schema';
 import { EventsGateway } from '../websocket/events.gateway';
 import { SignalsService } from './signals.service';
+import { XRayRepository } from './xray.repository';
 
 describe('SignalsService', () => {
   let service: SignalsService;
-  let mockXRayModel: any;
-  let mockEventsGateway: any;
+  let mockXRayRepository: Partial<XRayRepository>;
+  let mockEventsGateway: Partial<EventsGateway>;
 
   const mockXRay = {
     deviceId: 'test-device-123',
@@ -33,48 +32,30 @@ describe('SignalsService', () => {
   beforeEach(async () => {
     mockEventsGateway = {
       emitProcessStep: jest.fn(),
-      server: {} as any,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      server: {
+        emit: jest.fn(),
+      } as any,
     };
-    
-    // Mock Mongoose model with constructor pattern
-    function MockModel(data: any) {
-      return {
-        ...data,
-        save: jest.fn().mockResolvedValue({ ...data, _id: 'mock-id-123' }),
-      };
-    }
-    
-    // Add static methods to the model
-    MockModel.find = jest.fn().mockReturnValue({
-      skip: jest.fn().mockReturnValue({
-        limit: jest.fn().mockReturnValue({
-          exec: jest.fn().mockResolvedValue([mockXRay])
-        })
-      })
-    });
-    
-    MockModel.findById = jest.fn().mockReturnValue({
-      exec: jest.fn().mockResolvedValue(mockXRay)
-    });
-    
-    MockModel.findByIdAndUpdate = jest.fn().mockReturnValue({
-      exec: jest.fn().mockResolvedValue(mockXRay)
-    });
-    
-    MockModel.findByIdAndDelete = jest.fn().mockReturnValue({
-      exec: jest.fn().mockResolvedValue(true)
-    });
-    
-    MockModel.countDocuments = jest.fn().mockResolvedValue(1);
-    
-    mockXRayModel = MockModel;
+
+    // Mock XRayRepository
+    mockXRayRepository = {
+      create: jest.fn().mockResolvedValue(mockXRay),
+      find: jest.fn().mockResolvedValue({
+        items: [mockXRay],
+        total: 1,
+      }),
+      findOne: jest.fn().mockResolvedValue(mockXRay),
+      update: jest.fn().mockResolvedValue(mockXRay),
+      remove: jest.fn().mockResolvedValue(true),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SignalsService,
         {
-          provide: getModelToken(XRay.name),
-          useValue: mockXRayModel,
+          provide: XRayRepository,
+          useValue: mockXRayRepository,
         },
         {
           provide: EventsGateway,
@@ -92,7 +73,7 @@ describe('SignalsService', () => {
 
   describe('findAll', () => {
     it('should return all signals', async () => {
-      const paginationDto = { page: 1, limit: 10, skip: 0 };
+      const filterDto = { page: 1, limit: 10, skip: 0 };
       const result = {
         items: [mockXRay],
         total: 1,
@@ -100,19 +81,28 @@ describe('SignalsService', () => {
         limit: 10,
         totalPages: 1,
         hasNextPage: false,
-        hasPreviousPage: false
+        hasPreviousPage: false,
       };
-      
-      const response = await service.findAll(paginationDto);
+
+      (mockXRayRepository.find as jest.Mock).mockResolvedValueOnce({
+        items: [mockXRay],
+        total: 1,
+      });
+
+      const response = await service.findAll(filterDto);
       expect(response).toEqual(result);
-      expect(mockXRayModel.find).toHaveBeenCalled();
+      expect(mockXRayRepository.find).toHaveBeenCalledWith(filterDto);
     });
   });
 
-  describe('findByDeviceId', () => {
-    it('should return signals for a specific device', async () => {
-      const deviceId = 'test-device-123';
-      const paginationDto = { page: 1, limit: 10, skip: 0 };
+  describe('findAndPaginate', () => {
+    it('should return filtered signals', async () => {
+      const filterDto = {
+        page: 1,
+        limit: 10,
+        skip: 0,
+        deviceId: 'test-device-123',
+      };
       const result = {
         items: [mockXRay],
         total: 1,
@@ -120,12 +110,17 @@ describe('SignalsService', () => {
         limit: 10,
         totalPages: 1,
         hasNextPage: false,
-        hasPreviousPage: false
+        hasPreviousPage: false,
       };
-      
-      const response = await service.findByDeviceId(deviceId, paginationDto);
+
+      (mockXRayRepository.find as jest.Mock).mockResolvedValueOnce({
+        items: [mockXRay],
+        total: 1,
+      });
+
+      const response = await service.findAndPaginate(filterDto);
       expect(response).toEqual(result);
-      expect(mockXRayModel.find).toHaveBeenCalledWith({ deviceId });
+      expect(mockXRayRepository.find).toHaveBeenCalledWith(filterDto);
     });
   });
 
@@ -134,16 +129,14 @@ describe('SignalsService', () => {
       const id = 'mock-id-123';
       const response = await service.findOne(id);
       expect(response).toEqual(mockXRay);
-      expect(mockXRayModel.findById).toHaveBeenCalledWith(id);
+      expect(mockXRayRepository.findOne).toHaveBeenCalledWith(id);
     });
 
     it('should throw NotFoundException if signal not found', async () => {
       const id = 'nonexistent-id';
-      jest.spyOn(mockXRayModel, 'findById').mockReturnValueOnce({
-        exec: jest.fn().mockResolvedValue(null),
-      });
+      (mockXRayRepository.findOne as jest.Mock).mockResolvedValueOnce(null);
       await expect(service.findOne(id)).rejects.toThrow(NotFoundException);
-      expect(mockXRayModel.findById).toHaveBeenCalledWith(id);
+      expect(mockXRayRepository.findOne).toHaveBeenCalledWith(id);
     });
   });
 
@@ -163,10 +156,46 @@ describe('SignalsService', () => {
         ),
       };
 
-      await service.processXRayData(message as any);
-      
-      // Verify that the event was emitted
+      await service.processXRayData(message);
+
+      // Verify that repository create was called and event was emitted
+      expect(mockXRayRepository.create).toHaveBeenCalled();
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(mockEventsGateway.emitProcessStep).toHaveBeenCalled();
+    });
+  });
+
+  describe('update', () => {
+    it('should update a signal', async () => {
+      const id = 'mock-id-123';
+      const updateData = { id: 'mock-id-123', deviceId: 'updated-device' };
+
+      const response = await service.update(id, updateData);
+      expect(response).toEqual(mockXRay);
+      expect(mockXRayRepository.update).toHaveBeenCalledWith(
+        id,
+        expect.any(Object),
+      );
+    });
+
+    it('should throw NotFoundException if signal not found during update', async () => {
+      const id = 'nonexistent-id';
+      const updateData = { id: 'nonexistent-id', deviceId: 'updated-device' };
+
+      (mockXRayRepository.update as jest.Mock).mockResolvedValueOnce(null);
+      await expect(service.update(id, updateData)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('remove', () => {
+    it('should remove a signal', async () => {
+      const id = 'mock-id-123';
+
+      const response = await service.remove(id);
+      expect(response).toEqual({ deleted: true });
+      expect(mockXRayRepository.remove).toHaveBeenCalledWith(id);
     });
   });
 });

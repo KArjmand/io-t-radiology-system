@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
 import { ApiProperty } from '@nestjs/swagger';
+import { Document } from 'mongoose';
+import type { Coordinates } from 'src/types';
 
 @Schema()
 export class XRayData {
@@ -14,7 +15,7 @@ export class XRayData {
     type: [Number],
   })
   @Prop({ type: [Number], required: true })
-  coordinates: [number, number, number]; // [x, y, speed]
+  coordinates: Coordinates;
 }
 
 @Schema({ timestamps: true })

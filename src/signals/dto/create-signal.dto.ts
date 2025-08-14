@@ -7,6 +7,7 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
+import { Coordinates } from 'src/types';
 
 class CoordinateDto {
   @ApiProperty({ description: 'X coordinate', example: 51.339764 })
@@ -20,6 +21,10 @@ class CoordinateDto {
   @ApiProperty({ description: 'Speed', example: 1.2038 })
   @IsNumber()
   speed: number;
+
+  toTuple(): Coordinates {
+    return [this.x, this.y, this.speed];
+  }
 }
 
 class XRayDataPointDto {

@@ -3,8 +3,6 @@ import {
   Controller,
   Delete,
   Get,
-  HttpException,
-  HttpStatus,
   Param,
   Post,
   Put,
@@ -16,14 +14,12 @@ import {
   ApiBody,
   ApiOperation,
   ApiParam,
-  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { PaginatedResponseDto } from '../common/dto/paginated-response.dto';
 import { CreateSignalDto } from './dto/create-signal.dto';
 import { FilterSignalDto } from './dto/filter-signal.dto';
-import { PaginatedXRayResponseDto } from './dto/paginated-response.dto';
-import { PaginationDto } from './dto/pagination.dto';
 import { UpdateSignalDto } from './dto/update-signal.dto';
 import { XRay } from './schemas/xray.schema';
 import { SignalsService } from './signals.service';
@@ -34,45 +30,13 @@ import { SignalsService } from './signals.service';
 export class SignalsController {
   constructor(private readonly signalsService: SignalsService) {}
 
-  @Get()
-  @ApiOperation({ summary: 'Get all signals' })
-  @ApiQuery({ type: PaginationDto, required: false })
-  @ApiResponse({
-    status: 200,
-    description: 'Return all signals',
-    type: PaginatedXRayResponseDto,
-  })
-  async findAll(
-    @Query() paginationDto: PaginationDto,
-  ): Promise<PaginatedXRayResponseDto | XRay[]> {
-    return this.signalsService.findAll(paginationDto);
-  }
-
-  @Get('device/:deviceId')
-  @ApiOperation({ summary: 'Get signals by device ID' })
-  @ApiParam({ name: 'deviceId', description: 'Device ID' })
-  @ApiQuery({ type: PaginationDto, required: false })
-  @ApiResponse({
-    status: 200,
-    description: 'Return signals for specific device',
-    type: PaginatedXRayResponseDto,
-  })
-  async findByDeviceId(
-    @Param('deviceId') deviceId: string,
-    @Query() paginationDto: PaginationDto,
-  ): Promise<PaginatedXRayResponseDto | XRay[]> {
-    return this.signalsService.findByDeviceId(deviceId, paginationDto);
-  }
-
-  @Get(':id')
+  @Get('find-one/:id')
   @ApiOperation({ summary: 'Get signal by ID' })
   @ApiParam({ name: 'id', description: 'Signal ID' })
   @ApiResponse({ status: 200, description: 'Return the signal', type: XRay })
   @ApiResponse({ status: 404, description: 'Signal not found' })
   async findOne(@Param('id') id: string): Promise<XRay> {
     const signal = await this.signalsService.findOne(id);
-    if (!signal)
-      throw new HttpException('Signal not found', HttpStatus.NOT_FOUND);
 
     return signal;
   }
@@ -117,16 +81,16 @@ export class SignalsController {
     return this.signalsService.remove(id);
   }
 
-  @Get('filter/data')
+  @Get('find-all')
   @ApiOperation({ summary: 'Filter signals by criteria' })
   @ApiResponse({
     status: 200,
     description: 'Return filtered signals',
-    type: PaginatedXRayResponseDto,
+    type: PaginatedResponseDto<XRay>,
   })
   async filterData(
     @Query() filterDto: FilterSignalDto,
-  ): Promise<PaginatedXRayResponseDto | XRay[]> {
-    return this.signalsService.filterData(filterDto);
+  ): Promise<PaginatedResponseDto<XRay>> {
+    return this.signalsService.findAndPaginate(filterDto);
   }
 }

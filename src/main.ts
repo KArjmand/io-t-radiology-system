@@ -35,4 +35,4 @@ async function bootstrap() {
   logger.log(`Application is running on: ${await app.getUrl()}`);
   logger.log(`Swagger documentation available at: ${await app.getUrl()}/api`);
 }
-bootstrap();
+void bootstrap();

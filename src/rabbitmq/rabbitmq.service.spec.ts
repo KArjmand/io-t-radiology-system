@@ -15,7 +15,9 @@ describe('RabbitMQService', () => {
     };
 
     mockConfigService = {
-      get: jest.fn().mockImplementation((key, defaultValue) => defaultValue),
+      get: jest.fn(
+        () => 'xray_queue',
+      ) as unknown as typeof ConfigService.prototype.get,
     };
 
     const module: TestingModule = await Test.createTestingModule({
