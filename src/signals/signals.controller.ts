@@ -88,7 +88,7 @@ export class SignalsController {
     description: 'Return filtered signals',
     type: PaginatedResponseDto<XRay>,
   })
-  async filterData(
+  async findAndPaginate(
     @Query() filterDto: FilterSignalDto,
   ): Promise<PaginatedResponseDto<XRay>> {
     return this.signalsService.findAndPaginate(filterDto);
